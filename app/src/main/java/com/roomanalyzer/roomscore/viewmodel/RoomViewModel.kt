@@ -51,6 +51,7 @@ class RoomViewModel(application: Application) : AndroidViewModel(application) {
     val isFinishedCapturing: Boolean get() = photoCount >= MAX_PHOTOS
 
     fun addPhoto(bitmap: Bitmap) {
+        if (isAnalyzing) return
         capturedPhotos = capturedPhotos + bitmap
         photoCount = capturedPhotos.size
         if (photoCount >= MAX_PHOTOS) {
@@ -59,9 +60,8 @@ class RoomViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun finishCapture() {
-        if (capturedPhotos.isNotEmpty()) {
-            analyzeAll()
-        }
+        if (capturedPhotos.isEmpty() || isAnalyzing) return
+        analyzeAll()
     }
 
     fun updateHaConfig(config: HomeAssistantConfig) {
@@ -76,28 +76,33 @@ class RoomViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun analyzeAll() {
+        if (isAnalyzing) return
         isAnalyzing = true
         haSensorData = null
+        val photos = capturedPhotos
+        capturedPhotos = emptyList()
         viewModelScope.launch {
-            val allLabels = withContext(Dispatchers.IO) {
-                val labeler = ImageLabeling.getClient(ImageLabelerOptions.DEFAULT_OPTIONS)
-                val all = mutableListOf<ImageLabel>()
-                for (bitmap in capturedPhotos) {
-                    try {
-                        val image = InputImage.fromBitmap(bitmap, 0)
-                        all.addAll(Tasks.await(labeler.process(image)))
-                    } catch (_: Exception) { }
+            try {
+                val allLabels = withContext(Dispatchers.IO) {
+                    val labeler = ImageLabeling.getClient(ImageLabelerOptions.DEFAULT_OPTIONS)
+                    val all = mutableListOf<ImageLabel>()
+                    for (bitmap in photos) {
+                        try {
+                            val image = InputImage.fromBitmap(bitmap, 0)
+                            all.addAll(Tasks.await(labeler.process(image)))
+                        } catch (_: Exception) { }
+                    }
+                    all
                 }
-                all
-            }
 
-            val envData = if (haConfig.isConfigured) {
-                haRepo.fetchSensorData(haConfig).also { haSensorData = it }
-            } else null
+                val envData = if (haConfig.isConfigured) {
+                    haRepo.fetchSensorData(haConfig).also { haSensorData = it }
+                } else null
 
-            analysis = withContext(Dispatchers.Default) {
-                RoomAnalyzer.analyze(allLabels, envData)
-            }
+                analysis = withContext(Dispatchers.Default) {
+                    RoomAnalyzer.analyze(allLabels, envData)
+                }
+            } catch (_: Exception) { }
             isAnalyzing = false
         }
     }

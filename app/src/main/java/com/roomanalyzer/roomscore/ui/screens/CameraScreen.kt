@@ -76,6 +76,7 @@ fun CameraScreen(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     var controller by remember { mutableStateOf<LifecycleCameraController?>(null) }
+    var isCapturing by remember { mutableStateOf(false) }
     var permissionGranted by remember {
         mutableStateOf(
             ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) ==
@@ -167,7 +168,7 @@ fun CameraScreen(
 
             Spacer(modifier = Modifier.weight(1f))
 
-            if (!isProcessing) {
+            if (!isProcessing && !isCapturing) {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier.padding(bottom = 16.dp)
@@ -193,8 +194,10 @@ fun CameraScreen(
                     Button(
                         onClick = {
                             val camController = controller ?: return@Button
+                            isCapturing = true
                             capturePhoto(camController, ContextCompat.getMainExecutor(context)) { bitmap ->
-                                onPhotoTaken(bitmap)
+                                isCapturing = false
+                                if (bitmap != null) onPhotoTaken(bitmap)
                             }
                         },
                         shape = CircleShape,
@@ -296,28 +299,48 @@ private fun CameraPermissionDenied(onClose: () -> Unit) {
 private fun capturePhoto(
     controller: LifecycleCameraController,
     executor: Executor,
-    onBitmapReady: (Bitmap) -> Unit
+    onComplete: (Bitmap?) -> Unit
 ) {
     controller.takePicture(executor, object : ImageCapture.OnImageCapturedCallback() {
         override fun onCaptureSuccess(image: ImageProxy) {
-            val bitmap = imageProxyToBitmap(image)
-            image.close()
-            bitmap?.let { onBitmapReady(it) }
+            try {
+                val bitmap = imageProxyToBitmap(image)
+                onComplete(bitmap)
+            } finally {
+                image.close()
+            }
         }
         override fun onError(exception: ImageCaptureException) {
             exception.printStackTrace()
+            onComplete(null)
         }
     })
 }
+
+private const val MAX_IMAGE_SIZE = 800
 
 private fun imageProxyToBitmap(image: ImageProxy): Bitmap? {
     val buffer: ByteBuffer = image.planes[0].buffer
     val bytes = ByteArray(buffer.remaining())
     buffer.get(bytes)
-    val bitmap = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-    return bitmap?.let {
-        val matrix = Matrix()
-        matrix.postRotate(image.imageInfo.rotationDegrees.toFloat())
-        Bitmap.createBitmap(it, 0, 0, it.width, it.height, matrix, true)
+
+    val options = android.graphics.BitmapFactory.Options().apply {
+        inJustDecodeBounds = true
     }
+    android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
+
+    val scale = maxOf(
+        options.outWidth / MAX_IMAGE_SIZE,
+        options.outHeight / MAX_IMAGE_SIZE,
+        1
+    )
+    val decodeOptions = android.graphics.BitmapFactory.Options().apply {
+        inSampleSize = scale
+    }
+    val bitmap = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size, decodeOptions)
+        ?: return null
+
+    val matrix = Matrix()
+    matrix.postRotate(image.imageInfo.rotationDegrees.toFloat())
+    return Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
 }
