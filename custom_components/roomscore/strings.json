@@ -1,0 +1,13 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "RoomScore",
+        "description": "Connect RoomScore sensors. This integration provides a dedicated API endpoint for the RoomScore Android app and creates sensor entities for your room environment."
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Only one RoomScore instance is allowed."
+    }
+  }
+}

@@ -1,0 +1,10 @@
+update_analysis:
+  name: Update Room Analysis
+  description: Trigger a fresh room analysis and update RoomScore sensors.
+  fields:
+    room_sensors:
+      name: Room Sensors
+      description: List of sensor entity IDs to include in the analysis.
+      example: '["sensor.temperature", "sensor.humidity", "sensor.illuminance"]'
+      selector:
+        object: {}

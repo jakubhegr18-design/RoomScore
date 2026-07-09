@@ -1,0 +1,12 @@
+{
+  "domain": "roomscore",
+  "name": "RoomScore",
+  "version": "1.0.0",
+  "requirements": [],
+  "dependencies": [],
+  "codeowners": ["@roomanalyzer"],
+  "config_flow": true,
+  "iot_class": "local_polling",
+  "documentation": "https://github.com/roomanalyzer/roomscore",
+  "issue_tracker": "https://github.com/roomanalyzer/roomscore/issues"
+}
