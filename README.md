@@ -1,5 +1,9 @@
 # RoomScore
 
+![Status](https://img.shields.io/badge/status-work_in_progress-yellow)
+
+> **Work in Progress** — this project is under active development. Features may change, break, or be incomplete.
+
 Scan your room with your phone camera and get instant feedback — a score, improvement suggestions, chore recommendations, IKEA product ideas, and environmental data from Home Assistant.
 
 ## Features
